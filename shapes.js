@@ -1,3 +1,47 @@
+const getTmpSource = (mapInstance) => {
+  const geoJson = {
+    type: 'FeatureCollection',
+    features: [],
+  };
+
+  const layers = [
+    {
+      id: 'tmp-fill-layer',
+      type: 'fill',
+      source: 'tmp-polygon-source',
+      paint: {
+        'fill-color': '#ff4949',
+        'fill-opacity': 0.5,
+      },
+      filter: [
+        'in',
+        ['get', 'shape'],
+        ['literal', ['circle']],
+      ],
+    },
+    {
+      id: 'tmp-line-layer',
+      type: 'line',
+      source: 'tmp-polygon-source',
+      paint: {
+        'line-color': '#079c00',
+        'line-width': 2,
+      },
+      filter: [
+        'in',
+        ['get', 'shape'],
+        ['literal', ['circle']],
+      ],
+    },
+  ];
+
+  mapInstance.addSource('tmp-polygon-source', { type: 'geojson', data: geoJson });
+  mapInstance.addLayer(layers[0]);
+  mapInstance.addLayer(layers[1]);
+
+  return mapInstance.getSource('tmp-polygon-source');
+};
+
 const loadStressTestFeatureCollection = (mapInstance, step, size) => {
   const geoJson = {
     type: 'FeatureCollection',

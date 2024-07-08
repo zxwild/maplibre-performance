@@ -1,7 +1,9 @@
 const mapInstance = createMap();
 
-let source = null;
+let mainSource = null;
+let tmpSource = null;
 let geoJson = null;
+let tmpGeoJson = null;
 let currentFeatureId = null;
 let previousLngLat = null;
 
@@ -15,7 +17,7 @@ const getFeatureIdByMouseEvent = (event) => {
   return null;
 };
 
-const getLngLatDiff = (startLngLat,  endLngLat) => ({
+const getLngLatDiff = (startLngLat, endLngLat) => ({
   lng: startLngLat.lng - endLngLat.lng,
   lat: startLngLat.lat - endLngLat.lat,
 });
@@ -27,19 +29,42 @@ const moveGeoJson = (geoJson, diff) => {
   }, true);
 };
 
-mapInstance.on('load', () => {
-  // source = loadStressTestFeatureCollection(mapInstance, 3, 50);
-  source = loadStressTestFeatureCollection(mapInstance, 0.2, 6);
-  // source = loadStressTestFeatureCollection(mapInstance, 0.1, 3);
+const moveFeatureToTmpSource = (featureId) => {
+  const feature = geoJson.features[featureId];
 
-  geoJson = source.serialize().data;
-  console.log('loaded', source, geoJson);
+  delete geoJson.features[featureId];
+  mainSource.updateData({ remove: [currentFeatureId] });
+
+  tmpGeoJson.features[featureId] = feature;
+  tmpSource.updateData({ add: [feature] });
+};
+
+const moveFeatureToMainSource = (featureId) => {
+  const feature = tmpGeoJson.features[featureId];
+
+  delete tmpGeoJson.features[featureId];
+  tmpSource.updateData({ remove: [currentFeatureId] });
+
+  geoJson.features[featureId] = feature;
+  mainSource.updateData({ add: [feature] });
+};
+
+mapInstance.on('load', () => {
+  // mainSource = loadStressTestFeatureCollection(mapInstance, 3, 50);
+  // mainSource = loadStressTestFeatureCollection(mapInstance, 0.2, 6);
+  mainSource = loadStressTestFeatureCollection(mapInstance, 0.1, 3);
+
+  geoJson = mainSource.serialize().data;
+  tmpSource = getTmpSource(mapInstance);
+  tmpGeoJson = tmpSource.serialize().data;
+  console.log('loaded', mainSource, geoJson, tmpSource);
 });
 
 mapInstance.on('mousedown', (event) => {
   currentFeatureId = getFeatureIdByMouseEvent(event);
 
   if (currentFeatureId) {
+    moveFeatureToTmpSource(currentFeatureId);
     previousLngLat = event.lngLat;
     mapInstance.dragPan.disable();
   }
@@ -51,20 +76,21 @@ mapInstance.on('mousemove', _.throttle((event) => {
   }
 
   const diff = getLngLatDiff(event.lngLat, previousLngLat);
-  const shapeGeoJson = geoJson.features[currentFeatureId];
+  const shapeGeoJson = tmpGeoJson.features[currentFeatureId];
   moveGeoJson(shapeGeoJson, diff);
 
-  source.updateData({
+  tmpSource.updateData({
     update: [{
       id: currentFeatureId,
       newGeometry: shapeGeoJson.geometry,
     }],
   });
   previousLngLat = event.lngLat;
-}, 30));
+}, 10));
 
 mapInstance.on('mouseup', (event) => {
   if (currentFeatureId) {
+    moveFeatureToMainSource(currentFeatureId);
     mapInstance.dragPan.enable();
   }
 
